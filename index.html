@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Commencing Software - Secure POS</title>
+    <style>
+        :root { --primary: #4361ee; --success: #2ecc71; --danger: #e74c3c; --dark: #1e1e2d; --gray: #f4f6f9; }
+        * { margin:0; padding:0; box-sizing:border-box; font-family: 'Inter', sans-serif; }
+        body { background: var(--gray); padding: 20px; color: #333; }
+        
+        /* Login Screen Styles */
+        #login-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--dark); z-index: 2000; display: flex; justify-content: center; align-items: center; }
+        .login-card { background: white; padding: 40px; border-radius: 15px; width: 350px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        
+        .container { max-width: 1300px; margin: auto; display: none; }
+        .header-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        .logo-text { color: var(--primary); font-weight: 800; font-size: 26px; }
+        .dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; }
+        .stat-card { background: white; padding: 20px; border-radius: 12px; text-align: center; border-bottom: 4px solid var(--primary); }
+        .nav { display: flex; gap: 12px; margin-bottom: 20px; }
+        .nav-btn { padding: 12px 25px; border: none; background: white; cursor: pointer; border-radius: 10px; font-weight: 700; color: #555; }
+        .nav-btn.active { background: var(--primary); color: white; }
+        .grid { display: grid; grid-template-columns: 1fr 1.6fr; gap: 20px; }
+        .card { background: white; padding: 25px; border-radius: 15px; margin-bottom: 20px; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 6px; font-weight: 700; font-size: 13px; }
+        input { width: 100%; padding: 12px; border: 2px solid #f0f0f0; border-radius: 10px; outline: none; transition: 0.3s; }
+        input:focus { border-color: var(--primary); }
+        .btn { width: 100%; padding: 15px; border: none; border-radius: 10px; color: white; cursor: pointer; font-weight: 700; }
+        .btn-sale { background: var(--success); }
+        .btn-stock { background: var(--primary); }
+        .btn-danger { background: var(--danger); margin-top: 10px; }
+        table { width: 100%; border-collapse: collapse; }
+        th { background: #f8f9fa; padding: 15px; text-align: left; font-size: 12px; color: #888; border-bottom: 2px solid #eee; }
+        td { padding: 15px; border-bottom: 1px solid #f4f4f4; font-size: 14px; }
+        #print-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; justify-content: center; align-items: center; }
+        .modal-content { background: white; padding: 30px; border-radius: 15px; width: 400px; text-align: center; }
+        @media print { body * { visibility: hidden; } #receipt-print, #receipt-print * { visibility: visible; } #receipt-print { position: absolute; left: 0; top: 0; width: 100%; } }
+    </style>
+</head>
+<body>
+
+<div id="login-screen">
+    <div class="login-card">
+        <h2 style="color:var(--primary)">SECURE LOGIN</h2><br>
+        <div class="form-group">
+            <input type="text" id="user" placeholder="Username">
+        </div>
+        <div class="form-group">
+            <input type="password" id="pass" placeholder="Password">
+        </div>
+        <button class="btn btn-stock" onclick="checkLogin()">UNLOCK SYSTEM</button>
+    </div>
+</div>
+
+<div class="container" id="main-app">
+    <div class="header-top">
+        <div class="logo-text">COMMENCING SOFTWARE</div>
+        <div style="display:flex; gap:10px; align-items:center;">
+            <select id="currency-select" onchange="render()" style="padding:8px; border-radius:5px;">
+                <option value="PKR">PKR (Rs.)</option>
+                <option value="$">USD ($)</option>
+            </select>
+            <button onclick="location.reload()" style="background:none; border:none; cursor:pointer; font-size:12px; color:var(--danger); font-weight:bold;">LOGOUT</button>
+        </div>
+    </div>
+
+    <div class="dashboard">
+        <div class="stat-card"><p>Total Revenue</p><h2 id="stat-rev">0</h2></div>
+        <div class="stat-card"><p>Net Profit</p><h2 id="stat-profit" style="color: var(--success);">0</h2></div>
+        <div class="stat-card"><p>Stock Value</p><h2 id="stat-val">0</h2></div>
+        <div class="stat-card"><p>Low Stock</p><h2 id="stat-low" style="color: var(--danger);">0</h2></div>
+    </div>
+
+    <div class="nav">
+        <button class="nav-btn active" onclick="switchTab('sale-tab', this)">🛒 Billing Counter</button>
+        <button class="nav-btn" onclick="switchTab('stock-tab', this)">📦 Inventory</button>
+        <button class="nav-btn" onclick="switchTab('report-tab', this)">📊 Reports</button>
+    </div>
+
+    <div id="sale-tab" class="tab-content active">
+        <div class="grid">
+            <div class="card">
+                <h3>Scan Items</h3><br>
+                <div class="form-group"><label>Barcode</label><input type="text" id="s-bc" autofocus></div>
+                <div class="form-group"><label>Item Name</label><input type="text" id="s-name" readonly></div>
+                <div style="display:flex; gap:10px">
+                    <div class="form-group" style="flex:1"><label>Price</label><input type="number" id="s-price" readonly></div>
+                    <div class="form-group" style="flex:1"><label>Qty</label><input type="number" id="s-qty" value="1" min="1"></div>
+                </div>
+                <button class="btn btn-stock" onclick="addToCart()" style="margin-bottom:10px">ADD TO BILL</button>
+                <button class="btn btn-sale" onclick="checkout()">CHECKOUT & PRINT</button>
+            </div>
+            <div class="card">
+                <h3>Current Bill</h3>
+                <table>
+                    <thead><tr><th>Item</th><th>Qty</th><th>Total</th><th>Action</th></tr></thead>
+                    <tbody id="cart-body"></tbody>
+                </table>
+                <h3 id="cart-total" style="text-align:right; margin-top:15px; color:var(--primary)">Total: 0</h3>
+            </div>
+        </div>
+    </div>
+
+    <div id="stock-tab" class="tab-content">
+        <div class="grid">
+            <div class="card">
+                <h3>Manage Stock</h3><br>
+                <input type="text" id="p-bc" placeholder="Barcode" class="form-group" style="width:100%; padding:12px; margin-bottom:10px; border-radius:10px; border:2px solid #eee;">
+                <input type="text" id="p-name" placeholder="Item Name" class="form-group" style="width:100%; padding:12px; margin-bottom:10px; border-radius:10px; border:2px solid #eee;">
+                <div style="display:flex; gap:10px; margin-bottom:10px;">
+                    <input type="number" id="p-cost" placeholder="Cost Price" style="flex:1; padding:12px; border-radius:10px; border:2px solid #eee;">
+                    <input type="number" id="p-price" placeholder="Sale Price" style="flex:1; padding:12px; border-radius:10px; border:2px solid #eee;">
+                </div>
+                <input type="number" id="p-qty" placeholder="Quantity" style="width:100%; padding:12px; margin-bottom:15px; border-radius:10px; border:2px solid #eee;">
+                <button class="btn btn-stock" onclick="addStock()">SYNC INVENTORY</button>
+            </div>
+            <div class="card">
+                <h3>Live Inventory</h3>
+                <table>
+                    <thead><tr><th>Name</th><th>Stock</th><th>Price</th></tr></thead>
+                    <tbody id="stock-table-body"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="report-tab" class="tab-content">
+        <div class="card">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <h3>Sales Performance</h3>
+                <button class="btn btn-stock" onclick="exportToExcel()" style="width:auto; padding:10px 20px">Export Excel</button>
+            </div><br>
+            <table>
+                <thead><tr><th>Date & Time</th><th>Revenue</th><th>Profit</th></tr></thead>
+                <tbody id="history-table-body"></tbody>
+            </table>
+            <div style="margin-top:50px; border:2px dashed var(--danger); padding:25px; border-radius:15px; background:#fff5f5;">
+                <h4 style="color:var(--danger)">⚠️ Factory Reset</h4>
+                <p style="font-size:12px; color:#666; margin-bottom:10px;">Warning: This will wipe all inventory and sales data.</p>
+                <button class="btn btn-danger" onclick="factoryReset()" style="width:auto; padding:10px 20px">Reset All Data</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="print-modal">
+    <div class="modal-content">
+        <div id="receipt-print" style="text-align:left; font-family:monospace;">
+            <center><strong>COMMENCING POS</strong><br><span id="r-date" style="font-size:10px"></span></center>
+            <hr style="margin:10px 0; border:0.5px dashed #ccc;">
+            <div id="r-list"></div>
+            <hr style="margin:10px 0; border:0.5px dashed #ccc;">
+            <div style="display:flex; justify-content:space-between"><strong>GRAND TOTAL:</strong><strong id="r-total"></strong></div>
+            <center style="margin-top:20px; font-size:10px;">--- Thank You ---</center>
+        </div><br>
+        <button class="btn btn-sale" onclick="window.print(); closeModal();">PRINT RECEIPT</button>
+        <button class="btn" style="background:#888; margin-top:10px" onclick="closeModal()">CLOSE</button>
+    </div>
+</div>
+
+<script>
+    let inventory = JSON.parse(localStorage.getItem('cs_inv')) || [];
+    let sales = JSON.parse(localStorage.getItem('cs_sales')) || [];
+    let cart = [];
+
+    // UPDATED LOGIN CREDENTIALS
+    function checkLogin() {
+        const u = document.getElementById('user').value;
+        const p = document.getElementById('pass').value;
+        // Username: Anusrashid44 | Password: innocent guys
+        if(u === 'Anusrashid44' && p === 'innocent guys') {
+            document.getElementById('login-screen').style.display = 'none';
+            document.getElementById('main-app').style.display = 'block';
+        } else { 
+            alert("Ghalat Username ya Password!"); 
+        }
+    }
+
+    function getSym() { return document.getElementById('currency-select').value; }
+
+    // Scanner Auto-fill
+    document.getElementById('s-bc').addEventListener('input', (e) => {
+        const item = inventory.find(i => i.bc === e.target.value);
+        if(item) {
+            document.getElementById('s-name').value = item.name;
+            document.getElementById('s-price').value = item.price;
+        }
+    });
+
+    document.getElementById('p-bc').addEventListener('input', (e) => {
+        const item = inventory.find(i => i.bc === e.target.value);
+        if(item) {
+            document.getElementById('p-name').value = item.name;
+            document.getElementById('p-cost').value = item.cost;
+            document.getElementById('p-price').value = item.price;
+        }
+    });
+
+    function addToCart() {
+        const bc = document.getElementById('s-bc').value;
+        const qty = parseInt(document.getElementById('s-qty').value);
+        const item = inventory.find(i => i.bc === bc);
+        if(!item || item.stock < qty) return alert("Stock kam hai ya item nahi mila!");
+        
+        const existing = cart.find(c => c.bc === bc);
+        if(existing) {
+            existing.qty += qty;
+            existing.total = existing.qty * existing.price;
+        } else {
+            cart.push({ ...item, qty, total: item.price * qty });
+        }
+        
+        document.getElementById('s-bc').value = '';
+        document.getElementById('s-bc').focus();
+        renderCart();
+    }
+
+    function renderCart() {
+        const s = getSym();
+        let total = 0;
+        document.getElementById('cart-body').innerHTML = cart.map((item, i) => {
+            total += item.total;
+            return `<tr><td>${item.name}</td><td>${item.qty}</td><td>${s}${item.total.toFixed(2)}</td><td onclick="cart.splice(${i},1);renderCart()" style="color:red;cursor:pointer">✖</td></tr>`;
+        }).join('');
+        document.getElementById('cart-total').innerText = "Total: " + s + total.toFixed(2);
+    }
+
+    function checkout() {
+        if(!cart.length) return;
+        const s = getSym();
+        let billTotal = 0, billProfit = 0, rHtml = "";
+        
+        if(!confirm("Checkout karein?")) return;
+
+        cart.forEach(item => {
+            const idx = inventory.findIndex(i => i.bc === item.bc);
+            inventory[idx].stock -= item.qty;
+            billTotal += item.total;
+            billProfit += (item.price - item.cost) * item.qty;
+            rHtml += `<div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span>${item.name} x${item.qty}</span><span>${s}${item.total.toFixed(2)}</span></div>`;
+        });
+
+        sales.unshift({ total: billTotal, profit: billProfit, time: new Date().toLocaleString(), items: [...cart] });
+        
+        document.getElementById('r-date').innerText = new Date().toLocaleString();
+        document.getElementById('r-list').innerHTML = rHtml;
+        document.getElementById('r-total').innerText = s + billTotal.toFixed(2);
+        document.getElementById('print-modal').style.display = 'flex';
+        
+        cart = [];
+        save();
+        renderCart();
+    }
+
+    function addStock() {
+        const bc = document.getElementById('p-bc').value;
+        const name = document.getElementById('p-name').value;
+        const cost = parseFloat(document.getElementById('p-cost').value);
+        const price = parseFloat(document.getElementById('p-price').value);
+        const qty = parseInt(document.getElementById('p-qty').value);
+        
+        if(!bc || !name || isNaN(qty)) return alert("Sari maloomat sahi bharein!");
+
+        const idx = inventory.findIndex(i => i.bc === bc);
+        if(idx > -1) { 
+            inventory[idx].stock += qty; 
+            inventory[idx].cost = cost; 
+            inventory[idx].price = price; 
+        }
+        else { 
+            inventory.push({ bc, name, cost, price, stock: qty }); 
+        }
+        save();
+        alert("Stock Update Ho Gaya!");
+        ['p-bc','p-name','p-cost','p-price','p-qty'].forEach(id => document.getElementById(id).value = "");
+    }
+
+    function save() {
+        localStorage.setItem('cs_inv', JSON.stringify(inventory));
+        localStorage.setItem('cs_sales', JSON.stringify(sales));
+        render();
+    }
+
+    function render() {
+        const s = getSym();
+        document.getElementById('stat-rev').innerText = s + sales.reduce((a,b) => a + b.total, 0).toFixed(2);
+        document.getElementById('stat-profit').innerText = s + sales.reduce((a,b) => a + b.profit, 0).toFixed(2);
+        document.getElementById('stat-val').innerText = s + inventory.reduce((a,b) => a + (b.cost * b.stock), 0).toFixed(2);
+        document.getElementById('stat-low').innerText = inventory.filter(i => i.stock < 5).length;
+        document.getElementById('stock-table-body').innerHTML = inventory.map(i => `<tr><td>${i.name}</td><td>${i.stock}</td><td>${s}${i.price}</td></tr>`).join('');
+        document.getElementById('history-table-body').innerHTML = sales.map(sd => `<tr><td>${sd.time}</td><td>${s}${sd.total.toFixed(2)}</td><td style="color:green">+${s}${sd.profit.toFixed(2)}</td></tr>`).join('');
+    }
+
+    function exportToExcel() {
+        if(!sales.length) return alert("Koi sales record nahi hai!");
+        let csv = "Time,Total Revenue,Profit\n" + sales.map(s => `"${s.time}",${s.total},${s.profit}`).join("\n");
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'Sales_Report.csv';
+        a.click();
+    }
+
+    function factoryReset() {
+        if(confirm("SARA DATA DELETE HO JAYEGA! Kya aap sure hain?")) {
+            localStorage.clear();
+            location.reload();
+        }
+    }
+
+    function switchTab(id, btn) {
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+        btn.classList.add('active');
+    }
+
+    function closeModal() { document.getElementById('print-modal').style.display = 'none'; }
+    render();
+</script>
+</body>
+</html>
