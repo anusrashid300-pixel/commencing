@@ -28,9 +28,7 @@
         .logo-text { color: var(--primary); font-weight: 800; font-size: 24px; line-height: 1; }
         .logo-subtitle { font-size: 13px; color: #888; font-weight: 500; letter-spacing: 0.5px; display: block; margin-top: 2px; }
 
-        /* Right Side Header Tools */
-        .header-tools { display: flex; align-items: center; gap: 15px; }
-
+        /* Dashboard & Components */
         .dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; }
         .stat-card { background: white; padding: 20px; border-radius: 12px; text-align: center; border-bottom: 4px solid var(--primary); }
         .nav { display: flex; gap: 12px; margin-bottom: 20px; }
@@ -43,7 +41,7 @@
         
         .form-group { margin-bottom: 15px; }
         label { display: block; margin-bottom: 6px; font-weight: 700; font-size: 13px; }
-        input { width: 100%; padding: 12px; border: 2px solid #f0f0f0; border-radius: 10px; outline: none; transition: 0.3s; }
+        input, select.curr-drop { width: 100%; padding: 12px; border: 2px solid #f0f0f0; border-radius: 10px; outline: none; transition: 0.3s; }
         input:focus { border-color: var(--primary); }
         
         .btn { width: 100%; padding: 15px; border: none; border-radius: 10px; color: white; cursor: pointer; font-weight: 700; }
@@ -73,11 +71,11 @@
             </div>
         </div>
 
-        <div class="header-tools">
-            <span style="font-size: 11px; font-weight: 700; color: var(--primary); background: #eef2ff; padding: 6px 14px; border-radius: 20px; white-space: nowrap;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <span style="font-size: 10px; font-weight: 700; color: var(--primary); background: #eef2ff; padding: 6px 14px; border-radius: 20px; white-space: nowrap;">
                 OFFLINE-FIRST • ZERO SETUP
             </span>
-            <select id="currency-select" onchange="render()" style="padding: 8px 12px; border-radius: 8px; border: 2px solid #eee; font-weight: 600; cursor: pointer; outline: none; background: white; font-size: 13px;">
+            <select id="currency-select" onchange="render()" style="padding: 6px 10px; border-radius: 8px; border: 2px solid #eee; font-weight: 600; cursor: pointer; outline: none; background: white; font-size: 12px;">
                 <option value="PKR">PKR (Rs.)</option>
                 <option value="$">USD ($)</option>
             </select>
@@ -101,10 +99,10 @@
         <div class="grid">
             <div class="card">
                 <h3>Scan Items</h3><br>
-                <div class="form-group"><label>Barcode</label><input type="text" id="s-bc" autofocus placeholder="Scan barcode..."></div>
-                <div class="form-group"><label>Item Name</label><input type="text" id="s-name" readonly></div>
+                <div class="form-group"><label>Barcode</label><input type="text" id="s-bc" autofocus placeholder="Scan or type barcode..." onkeydown="if(event.key === 'Enter') addToCart()"></div>
+                <div class="form-group"><label>Item Name</label><input type="text" id="s-name" readonly style="background: #fafafa;"></div>
                 <div style="display:flex; gap:10px">
-                    <div class="form-group" style="flex:1"><label>Price</label><input type="number" id="s-price" readonly></div>
+                    <div class="form-group" style="flex:1"><label>Price</label><input type="number" id="s-price" readonly style="background: #fafafa;"></div>
                     <div class="form-group" style="flex:1"><label>Qty</label><input type="number" id="s-qty" value="1" min="1"></div>
                 </div>
                 <button class="btn btn-stock" onclick="addToCart()" style="margin-bottom:10px">ADD TO BILL</button>
@@ -128,14 +126,17 @@
                 <input type="text" id="p-bc" placeholder="Barcode" class="form-group">
                 <input type="text" id="p-name" placeholder="Item Name" class="form-group">
                 <div style="display:flex; gap:10px; margin-bottom:10px;">
-                    <input type="number" id="p-cost" placeholder="Cost Price" style="flex:1">
-                    <input type="number" id="p-price" placeholder="Sale Price" style="flex:1">
+                    <input type="number" id="p-cost" placeholder="Cost Price" style="flex:1" min="0" step="0.01">
+                    <input type="number" id="p-price" placeholder="Sale Price" style="flex:1" min="0" step="0.01">
                 </div>
-                <input type="number" id="p-qty" placeholder="Quantity" style="margin-bottom:15px;">
+                <input type="number" id="p-qty" placeholder="Quantity" style="margin-bottom:15px;" min="0">
                 <button class="btn btn-stock" onclick="addStock()">SYNC INVENTORY</button>
             </div>
             <div class="card">
-                <h3>Live Inventory</h3>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                    <h3>Live Inventory</h3>
+                    <input type="text" id="search-inventory" placeholder="Find Inventory (Name / Barcode)..." oninput="filterInventory()" style="width:60%; padding:8px 12px; border-radius:8px; font-size:13px;">
+                </div>
                 <table>
                     <thead><tr><th>Name</th><th>Stock</th><th>Price</th></tr></thead>
                     <tbody id="stock-table-body"></tbody>
@@ -156,7 +157,7 @@
             </table>
             <div style="margin-top:50px; border:2px dashed var(--danger); padding:25px; border-radius:15px; background:#fff5f5;">
                 <h4 style="color:var(--danger)">⚠️ Factory Reset</h4>
-                <p style="font-size:12px; color:#666; margin-bottom:10px;">Warning: This will clear all data from this browser.</p>
+                <p style="font-size:12px; color:#666; margin-bottom:10px;">Wipe all local storage data.</p>
                 <button class="btn btn-danger" onclick="factoryReset()" style="width:auto; padding:10px 20px">Reset All Data</button>
             </div>
         </div>
@@ -190,15 +191,18 @@
     function getSym() { return document.getElementById('currency-select').value; }
 
     document.getElementById('s-bc').addEventListener('input', (e) => {
-        const item = inventory.find(i => i.bc === e.target.value);
+        const item = inventory.find(i => i.bc === e.target.value.trim());
         if(item) {
             document.getElementById('s-name').value = item.name;
             document.getElementById('s-price').value = item.price;
+        } else {
+            document.getElementById('s-name').value = '';
+            document.getElementById('s-price').value = '';
         }
     });
 
     document.getElementById('p-bc').addEventListener('input', (e) => {
-        const item = inventory.find(i => i.bc === e.target.value);
+        const item = inventory.find(i => i.bc === e.target.value.trim());
         if(item) {
             document.getElementById('p-name').value = item.name;
             document.getElementById('p-cost').value = item.cost;
@@ -207,19 +211,32 @@
     });
 
     function addToCart() {
-        const bc = document.getElementById('s-bc').value;
+        const bc = document.getElementById('s-bc').value.trim();
         const qty = parseInt(document.getElementById('s-qty').value);
-        const item = inventory.find(i => i.bc === bc);
-        if(!item || item.stock < qty) return alert("Stock low or item not found!");
         
+        if(!bc || isNaN(qty) || qty <= 0) return;
+
+        const item = inventory.find(i => i.bc === bc);
+        if(!item) return alert("Item not found!");
+
         const existing = cart.find(c => c.bc === bc);
+        const currentCartQty = existing ? existing.qty : 0;
+        
+        if(item.stock < (currentCartQty + qty)) {
+            return alert(`Stock Low! Available stock: ${item.stock}`);
+        }
+        
         if(existing) {
             existing.qty += qty;
             existing.total = existing.qty * existing.price;
         } else {
             cart.push({ ...item, qty, total: item.price * qty });
         }
+        
         document.getElementById('s-bc').value = '';
+        document.getElementById('s-name').value = '';
+        document.getElementById('s-price').value = '';
+        document.getElementById('s-qty').value = '1';
         document.getElementById('s-bc').focus();
         renderCart();
     }
@@ -229,25 +246,29 @@
         let total = 0;
         document.getElementById('cart-body').innerHTML = cart.map((item, i) => {
             total += item.total;
-            return `<tr><td>${item.name}</td><td>${item.qty}</td><td>${s}${item.total.toFixed(2)}</td><td onclick="cart.splice(${i},1);renderCart()" style="color:red;cursor:pointer">✖</td></tr>`;
+            return `<tr><td>${item.name}</td><td>${item.qty}</td><td>${s}${item.total.toFixed(2)}</td><td onclick="cart.splice(${i},1);renderCart()" style="color:red;cursor:pointer;font-weight:bold;">✖</td></tr>`;
         }).join('');
         document.getElementById('cart-total').innerText = "Total: " + s + total.toFixed(2);
     }
 
     function checkout() {
-        if(!cart.length) return;
+        if(!cart.length) return alert("Cart empty hai!");
         const s = getSym();
         let billTotal = 0, billProfit = 0, rHtml = "";
         
+        if(!confirm("Proceed with checkout?")) return;
+
         cart.forEach(item => {
             const idx = inventory.findIndex(i => i.bc === item.bc);
-            inventory[idx].stock -= item.qty;
-            billTotal += item.total;
-            billProfit += (item.price - item.cost) * item.qty;
-            rHtml += `<div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span>${item.name} x${item.qty}</span><span>${s}${item.total.toFixed(2)}</span></div>`;
+            if (idx > -1) {
+                inventory[idx].stock -= item.qty;
+                billTotal += item.total;
+                billProfit += (item.price - item.cost) * item.qty;
+                rHtml += `<div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span>${item.name} x${item.qty}</span><span>${s}${item.total.toFixed(2)}</span></div>`;
+            }
         });
 
-        sales.unshift({ total: billTotal, profit: billProfit, time: new Date().toLocaleString() });
+        sales.unshift({ total: billTotal, profit: billProfit, time: new Date().toLocaleString(), items: [...cart] });
         document.getElementById('r-date').innerText = new Date().toLocaleString();
         document.getElementById('r-list').innerHTML = rHtml;
         document.getElementById('r-total').innerText = s + billTotal.toFixed(2);
@@ -255,17 +276,18 @@
         
         cart = [];
         save();
-        renderCart();
     }
 
     function addStock() {
-        const bc = document.getElementById('p-bc').value;
-        const name = document.getElementById('p-name').value;
+        const bc = document.getElementById('p-bc').value.trim();
+        const name = document.getElementById('p-name').value.trim();
         const cost = parseFloat(document.getElementById('p-cost').value);
         const price = parseFloat(document.getElementById('p-price').value);
         const qty = parseInt(document.getElementById('p-qty').value);
         
-        if(!bc || !name || isNaN(qty)) return alert("Please fill all fields!");
+        if(!bc || !name || isNaN(cost) || isNaN(price) || isNaN(qty)) {
+            return alert("Tamam fields ko sahi tareeqay se bharein!");
+        }
 
         const idx = inventory.findIndex(i => i.bc === bc);
         if(idx > -1) { 
@@ -276,7 +298,7 @@
             inventory.push({ bc, name, cost, price, stock: qty }); 
         }
         save();
-        alert("Stock Updated!");
+        alert("Inventory Updated!");
         ['p-bc','p-name','p-cost','p-price','p-qty'].forEach(id => document.getElementById(id).value = "");
     }
 
@@ -292,21 +314,44 @@
         document.getElementById('stat-profit').innerText = s + sales.reduce((a,b) => a + b.profit, 0).toFixed(2);
         document.getElementById('stat-val').innerText = s + inventory.reduce((a,b) => a + (b.cost * b.stock), 0).toFixed(2);
         document.getElementById('stat-low').innerText = inventory.filter(i => i.stock < 5).length;
-        document.getElementById('stock-table-body').innerHTML = inventory.map(i => `<tr><td>${i.name}</td><td>${i.stock}</td><td>${s}${i.price}</td></tr>`).join('');
-        document.getElementById('history-table-body').innerHTML = sales.map(sd => `<tr><td>${sd.time}</td><td>${s}${sd.total.toFixed(2)}</td><td style="color:green">+${s}${sd.profit.toFixed(2)}</td></tr>`).join('');
+        
+        // Is line ko filter function handle karega taake search input kharab na ho
+        filterInventory(); 
+        
+        document.getElementById('history-table-body').innerHTML = sales.map(sd => `<tr><td>${sd.time}</td><td>${s}${sd.total.toFixed(2)}</td><td style="color:green;font-weight:bold;">+${s}${sd.profit.toFixed(2)}</td></tr>`).join('');
+        renderCart();
+    }
+
+    function filterInventory() {
+        const s = getSym();
+        const query = document.getElementById('search-inventory').value.toLowerCase().trim();
+        const filtered = inventory.filter(i => i.name.toLowerCase().includes(query) || i.bc.toLowerCase().includes(query));
+        
+        document.getElementById('stock-table-body').innerHTML = filtered.map(i => `<tr><td>${i.name}</td><td>${i.stock}</td><td>${s}${i.price.toFixed(2)}</td></tr>`).join('');
     }
 
     function exportToExcel() {
-        let csv = "Time,Revenue,Profit\n" + sales.map(s => `"${s.time}",${s.total},${s.profit}`).join("\n");
+        if(!sales.length) return alert("No sales records!");
+        
+        let csv = "Time,Total Revenue,Profit\n" + sales.map(s => `"${s.time}",${s.total},${s.profit}`).join("\n");
         const blob = new Blob([csv], { type: 'text/csv' });
         const a = document.createElement('a');
+        
+        // Live Unique Timestamp formatting
+        const now = new Date();
+        const timestamp = now.getFullYear() + "-" + 
+                          String(now.getMonth() + 1).padStart(2, '0') + "-" + 
+                          String(now.getDate()).padStart(2, '0') + "_" + 
+                          String(now.getHours()).padStart(2, '0') + "-" + 
+                          String(now.getMinutes()).padStart(2, '0');
+
         a.href = URL.createObjectURL(blob);
-        a.download = 'Sales_Report.csv';
+        a.download = `Sales_Report_${timestamp}.csv`;
         a.click();
     }
 
     function factoryReset() {
-        if(confirm("Are you sure? All data will be wiped!")) { localStorage.clear(); location.reload(); }
+        if(confirm("SARA DATA DELETE HO JAYEGA! Are you sure?")) { localStorage.clear(); location.reload(); }
     }
 
     function switchTab(id, btn) {
@@ -317,6 +362,7 @@
     }
 
     function closeModal() { document.getElementById('print-modal').style.display = 'none'; }
+    
     render();
 </script>
 </body>
